@@ -3,7 +3,6 @@ Configuration settings for Code Review Agents.
 Supports both local (Ollama) and remote (Claude, OpenAI) LLM providers.
 """
 
-import os
 from enum import Enum
 from pydantic_settings import BaseSettings
 from pydantic import Field

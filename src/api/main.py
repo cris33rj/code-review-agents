@@ -3,11 +3,10 @@ FastAPI application for Code Review Agents.
 Provides REST API endpoints for code review functionality.
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional
-import asyncio
 
 from src.config import settings, LLMProvider
 from src.agents.orchestrator import Orchestrator

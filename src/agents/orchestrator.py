@@ -3,7 +3,7 @@ Orchestrator Agent - Coordinates the code review workflow using LangGraph.
 """
 
 import asyncio
-from typing import TypedDict, Optional, List
+from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, END
 
 from src.llm.gateway import LLMGateway
