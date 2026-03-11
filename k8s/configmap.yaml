@@ -5,6 +5,7 @@ metadata:
   namespace: code-review
 data:
   # LLM Provider
+  #
   LLM_PROVIDER: "ollama"
   
   # Ollama Configuration
