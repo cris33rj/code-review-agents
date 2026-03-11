@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: code-review-agents
+  namespace: code-review
+  annotations:
+    # Traefik annotations
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    # Optional: Enable HTTPS redirect
+    # traefik.ingress.kubernetes.io/router.middlewares: default-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    # Access via: http://codereview.localhost
+    - host: codereview.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: code-review-agents
+                port:
+                  number: 80
+    
+    # Alternative: Access via http://localhost/codereview
+    - host: localhost
+      http:
+        paths:
+          - path: /codereview
+            pathType: Prefix
+            backend:
+              service:
+                name: code-review-agents
+                port:
+                  number: 80

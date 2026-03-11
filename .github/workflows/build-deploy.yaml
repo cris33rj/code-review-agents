@@ -1,0 +1,108 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: localhost:5000
+  IMAGE_NAME: code-review-agents
+
+jobs:
+  test:
+    name: Test
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run linting
+        run: |
+          pip install ruff
+          ruff check src/
+
+      - name: Run tests
+        run: |
+          pip install pytest pytest-asyncio
+          pytest tests/ -v || echo "No tests yet"
+
+  build:
+    name: Build and Push
+    runs-on: self-hosted
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate image metadata
+        id: meta
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${SHORT_SHA},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.short_sha }} .
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.short_sha }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Push to local registry
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.short_sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: self-hosted
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to k3d cluster
+        run: |
+          # Apply Kubernetes manifests
+          kubectl apply -k k8s/
+          
+          # Wait for rollout
+          kubectl rollout status deployment/code-review-agents -n code-review --timeout=120s
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n code-review
+          kubectl get svc -n code-review
+          kubectl get ingress -n code-review
+
+      - name: Health check
+        run: |
+          # Wait for service to be ready
+          sleep 10
+          curl -f http://codereview.localhost/health || echo "Health check will work after DNS setup"

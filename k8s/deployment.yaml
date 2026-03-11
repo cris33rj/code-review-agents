@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: code-review-agents
+  namespace: code-review
+  labels:
+    app: code-review-agents
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: code-review-agents
+  template:
+    metadata:
+      labels:
+        app: code-review-agents
+    spec:
+      containers:
+        - name: code-review-agents
+          image: homelab-registry:5000/code-review-agents:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          
+          # Environment from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: code-review-config
+            - secretRef:
+                name: code-review-secrets
+                optional: true
+          
+          # Resource limits
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          
+          # Probes
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          # Security context
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+      
+      # Pod-level settings
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      
+      # Host aliases for Ollama access
+      hostAliases:
+        - ip: "172.28.128.1"
+          hostnames:
+            - "host.docker.internal"
+            - "ollama-host"
+
+---
+# Horizontal Pod Autoscaler (optional)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: code-review-agents-hpa
+  namespace: code-review
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: code-review-agents
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
