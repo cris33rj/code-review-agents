@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # API Settings
+    #
     app_name: str = "Code Review Agents"
     app_version: str = "0.1.0"
     debug: bool = Field(default=False, alias="DEBUG")
