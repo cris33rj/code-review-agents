@@ -5,15 +5,21 @@ metadata:
   namespace: code-review
   labels:
     app: code-review-agents
+    app.kubernetes.io/name: code-review-agents
+    app.kubernetes.io/part-of: homelab
 spec:
   replicas: 3
   selector:
     matchLabels:
       app: code-review-agents
+      app.kubernetes.io/name: code-review-agents
+      app.kubernetes.io/part-of: homelab
   template:
     metadata:
       labels:
         app: code-review-agents
+        app.kubernetes.io/name: code-review-agents
+        app.kubernetes.io/part-of: homelab
     spec:
       containers:
         - name: code-review-agents
@@ -52,7 +58,7 @@ spec:
           
           readinessProbe:
             httpGet:
-              path: /health
+              path: /ready
               port: 8000
             initialDelaySeconds: 5
             periodSeconds: 10
