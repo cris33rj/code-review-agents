@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 import anthropic
 import openai
+from google import genai
 
 from src.config import settings, LLMProvider
 
@@ -92,6 +93,27 @@ class OpenAIClient(BaseLLMClient):
         return response.choices[0].message.content
 
 
+class GeminiClient(BaseLLMClient):
+    """Client for Google Gemini API."""
+
+    def __init__(self, api_key: str, model: str):
+        self.client = genai.Client(api_key=api_key)
+        self.model = model
+
+    async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+        contents = prompt
+        config = {"max_output_tokens": 4096}
+        if system_prompt:
+            config["system_instruction"] = system_prompt
+
+        response = await self.client.aio.models.generate_content(
+            model=self.model,
+            contents=contents,
+            config=config,
+        )
+        return response.text
+
+
 class LLMGateway:
     """
     Unified gateway for LLM access.
@@ -122,6 +144,13 @@ class LLMGateway:
                 api_key=settings.openai_api_key,
                 model=settings.openai_model
             )
+        elif self.provider == LLMProvider.GEMINI:
+            if not settings.gemini_api_key:
+                raise ValueError("GEMINI_API_KEY is required for Gemini provider")
+            return GeminiClient(
+                api_key=settings.gemini_api_key,
+                model=settings.gemini_model
+            )
         else:
             raise ValueError(f"Unknown LLM provider: {self.provider}")
     
@@ -140,7 +169,9 @@ class LLMGateway:
             info["model"] = settings.claude_model
         elif self.provider == LLMProvider.OPENAI:
             info["model"] = settings.openai_model
-        
+        elif self.provider == LLMProvider.GEMINI:
+            info["model"] = settings.gemini_model
+
         return info
 
 

@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Review Agents</title>
+  <style>
+    :root {
+      --bg-primary: #1a1a2e;
+      --bg-secondary: #16213e;
+      --bg-card: #1e2a4a;
+      --bg-input: #0f1629;
+      --text-primary: #e0e0e0;
+      --text-secondary: #a0a0b0;
+      --text-muted: #6a6a7a;
+      --accent-security: #ff6b6b;
+      --accent-style: #4ecdc4;
+      --accent-summary: #95e86b;
+      --accent-primary: #6c63ff;
+      --border-color: #2a2a4a;
+      --error-bg: #3a1a1a;
+      --error-border: #ff4444;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--accent-primary);
+    }
+
+    header .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    #provider-badge {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: var(--bg-card);
+      padding: 0.3rem 0.7rem;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      height: calc(100vh - 60px);
+    }
+
+    .input-panel {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border-color);
+    }
+
+    .panel-header {
+      padding: 0.7rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    #editor-container {
+      flex: 1;
+      overflow: auto;
+      background: var(--bg-input);
+    }
+
+    #editor-container .cm-editor {
+      height: 100%;
+    }
+
+    #editor-container .cm-editor .cm-scroller {
+      font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
+      font-size: 14px;
+    }
+
+    #fallback-textarea {
+      width: 100%;
+      height: 100%;
+      background: var(--bg-input);
+      color: var(--text-primary);
+      border: none;
+      padding: 1rem;
+      font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      font-size: 14px;
+      resize: none;
+      outline: none;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 0.7rem 1rem;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border-color);
+      flex-wrap: wrap;
+    }
+
+    .controls label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .controls select {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 0.35rem 0.5rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .controls select:focus {
+      border-color: var(--accent-primary);
+    }
+
+    .parallel-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .parallel-toggle input[type="checkbox"] {
+      accent-color: var(--accent-primary);
+      cursor: pointer;
+    }
+
+    .controls-spacer { flex: 1; }
+
+    #submit-btn {
+      background: var(--accent-primary);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0.5rem 1.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    #submit-btn:hover { opacity: 0.85; }
+    #submit-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .results-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #results-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .result-card {
+      background: var(--bg-card);
+      border-radius: 8px;
+      border-left: 4px solid var(--border-color);
+      overflow: hidden;
+    }
+
+    .result-card.security { border-left-color: var(--accent-security); }
+    .result-card.style { border-left-color: var(--accent-style); }
+    .result-card.summary { border-left-color: var(--accent-summary); }
+
+    .result-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.7rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .result-card-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .result-card.security .result-card-title { color: var(--accent-security); }
+    .result-card.style .result-card-title { color: var(--accent-style); }
+    .result-card.summary .result-card-title { color: var(--accent-summary); }
+
+    .result-card-status {
+      font-size: 0.7rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      color: var(--text-muted);
+    }
+
+    .result-card-body {
+      padding: 1rem;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      color: var(--text-primary);
+    }
+
+    .result-card-body h2 {
+      font-size: 1rem;
+      margin-top: 0.8rem;
+      margin-bottom: 0.3rem;
+      color: var(--text-primary);
+    }
+
+    .result-card-body h3 {
+      font-size: 0.92rem;
+      margin-top: 0.6rem;
+      margin-bottom: 0.2rem;
+      color: var(--text-secondary);
+    }
+
+    #error-banner {
+      display: none;
+      background: var(--error-bg);
+      border: 1px solid var(--error-border);
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      color: var(--accent-security);
+      font-size: 0.88rem;
+    }
+
+    #error-banner .dismiss {
+      float: right;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-secondary);
+    }
+
+    .loading.active { display: block; }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--border-color);
+      border-top-color: var(--accent-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      gap: 0.5rem;
+    }
+
+    .empty-state-icon { font-size: 2.5rem; opacity: 0.3; }
+
+    .provider-footer {
+      padding: 0.5rem 1rem;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border-color);
+      text-align: right;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr 1fr;
+      }
+      .input-panel {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Code Review Agents</h1>
+      <span class="subtitle">AI-Powered Code Analysis</span>
+    </div>
+    <span id="provider-badge">Loading providers...</span>
+  </header>
+
+  <main>
+    <section class="input-panel">
+      <div class="panel-header">Source Code</div>
+      <div id="editor-container">
+        <textarea id="fallback-textarea" placeholder="Paste your code here..." spellcheck="false"></textarea>
+      </div>
+      <div class="controls">
+        <label for="language">Lang</label>
+        <select id="language">
+          <option value="">Auto-detect</option>
+          <option value="python" selected>Python</option>
+          <option value="javascript">JavaScript</option>
+          <option value="typescript">TypeScript</option>
+          <option value="java">Java</option>
+          <option value="go">Go</option>
+          <option value="rust">Rust</option>
+          <option value="c">C</option>
+          <option value="cpp">C++</option>
+          <option value="ruby">Ruby</option>
+          <option value="php">PHP</option>
+          <option value="sql">SQL</option>
+          <option value="shell">Shell</option>
+        </select>
+
+        <label for="provider">Provider</label>
+        <select id="provider">
+          <option value="">Default</option>
+          <option value="ollama">Ollama</option>
+          <option value="claude">Claude</option>
+          <option value="openai">OpenAI</option>
+          <option value="gemini">Gemini</option>
+        </select>
+
+        <div class="parallel-toggle">
+          <input type="checkbox" id="parallel" checked>
+          <label for="parallel">Parallel</label>
+        </div>
+
+        <div class="controls-spacer"></div>
+
+        <span id="char-count" style="font-size:0.75rem; color:var(--text-muted);">0 chars</span>
+        <button id="submit-btn">Review</button>
+      </div>
+    </section>
+
+    <section class="results-panel">
+      <div class="panel-header">Analysis Results</div>
+      <div id="results-content">
+        <div id="error-banner">
+          <span class="dismiss" onclick="hideError()">&times;</span>
+          <span id="error-message"></span>
+        </div>
+
+        <div id="loading-indicator" class="loading">
+          <div class="spinner"></div>
+          <div>Analyzing code...</div>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;">This may take a moment depending on the LLM provider</div>
+        </div>
+
+        <div id="results-cards"></div>
+
+        <div id="empty-state" class="empty-state">
+          <div class="empty-state-icon">&#128269;</div>
+          <div>Paste code and click Review to start analysis</div>
+        </div>
+      </div>
+      <div id="result-footer" class="provider-footer" style="display:none;"></div>
+    </section>
+  </main>
+
+  <script type="module">
+    // ─── Configuration ───────────────────────────────────────────────
+    const API_BASE = "";
+    const MAX_CODE_LENGTH = 50000;
+
+    // ─── State ───────────────────────────────────────────────────────
+    let editorView = null;
+
+    // ─── DOM refs ────────────────────────────────────────────────────
+    const editorContainer = document.getElementById("editor-container");
+    const fallbackTextarea = document.getElementById("fallback-textarea");
+    const languageSelect = document.getElementById("language");
+    const providerSelect = document.getElementById("provider");
+    const parallelCheckbox = document.getElementById("parallel");
+    const submitBtn = document.getElementById("submit-btn");
+    const charCount = document.getElementById("char-count");
+    const errorBanner = document.getElementById("error-banner");
+    const errorMessage = document.getElementById("error-message");
+    const loadingIndicator = document.getElementById("loading-indicator");
+    const resultsCards = document.getElementById("results-cards");
+    const emptyState = document.getElementById("empty-state");
+    const providerBadge = document.getElementById("provider-badge");
+    const resultFooter = document.getElementById("result-footer");
+
+    // ─── CodeMirror setup ────────────────────────────────────────────
+    try {
+      const { EditorView, basicSetup } = await import("https://esm.sh/@codemirror/basic-setup@0.20.0");
+      const { EditorState } = await import("https://esm.sh/@codemirror/state@6.5.2");
+      const { oneDark } = await import("https://esm.sh/@codemirror/theme-one-dark@6.1.2");
+      const { python } = await import("https://esm.sh/@codemirror/lang-python@6.1.6");
+      const { javascript } = await import("https://esm.sh/@codemirror/lang-javascript@6.2.3");
+      const { java } = await import("https://esm.sh/@codemirror/lang-java@6.0.1");
+      const { rust } = await import("https://esm.sh/@codemirror/lang-rust@6.0.1");
+      const { cpp } = await import("https://esm.sh/@codemirror/lang-cpp@6.0.2");
+      const { sql } = await import("https://esm.sh/@codemirror/lang-sql@6.8.0");
+      const { php } = await import("https://esm.sh/@codemirror/lang-php@6.0.1");
+
+      const langExtensions = {
+        python: python(),
+        javascript: javascript(),
+        typescript: javascript({ typescript: true }),
+        java: java(),
+        go: [],
+        rust: rust(),
+        c: cpp(),
+        cpp: cpp(),
+        ruby: [],
+        php: php(),
+        sql: sql(),
+        shell: [],
+      };
+
+      const updateCharCount = EditorView.updateListener.of((update) => {
+        if (update.docChanged) {
+          charCount.textContent = `${update.state.doc.length} chars`;
+        }
+      });
+
+      const selectedLang = languageSelect.value;
+      const langExt = langExtensions[selectedLang] || [];
+
+      editorView = new EditorView({
+        state: EditorState.create({
+          doc: "",
+          extensions: [
+            basicSetup,
+            oneDark,
+            updateCharCount,
+            ...(Array.isArray(langExt) ? langExt : [langExt]),
+          ],
+        }),
+        parent: editorContainer,
+      });
+
+      fallbackTextarea.remove();
+
+      // Swap language extension on dropdown change
+      languageSelect.addEventListener("change", () => {
+        const lang = languageSelect.value;
+        const ext = langExtensions[lang] || [];
+        const doc = editorView.state.doc.toString();
+
+        editorView.destroy();
+        editorView = new EditorView({
+          state: EditorState.create({
+            doc,
+            extensions: [
+              basicSetup,
+              oneDark,
+              updateCharCount,
+              ...(Array.isArray(ext) ? ext : [ext]),
+            ],
+          }),
+          parent: editorContainer,
+        });
+      });
+    } catch (e) {
+      console.warn("CodeMirror failed to load, using textarea fallback:", e);
+      fallbackTextarea.addEventListener("input", () => {
+        charCount.textContent = `${fallbackTextarea.value.length} chars`;
+      });
+    }
+
+    // ─── Get code from editor ────────────────────────────────────────
+    function getCode() {
+      if (editorView) return editorView.state.doc.toString();
+      return fallbackTextarea.value;
+    }
+
+    // ─── Error handling ──────────────────────────────────────────────
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorBanner.style.display = "block";
+    }
+
+    window.hideError = function () {
+      errorBanner.style.display = "none";
+    };
+
+    // ─── Loading state ───────────────────────────────────────────────
+    function setLoading(active) {
+      loadingIndicator.classList.toggle("active", active);
+      submitBtn.disabled = active;
+      submitBtn.textContent = active ? "Analyzing..." : "Review";
+      if (active) {
+        emptyState.style.display = "none";
+        resultsCards.innerHTML = "";
+        resultFooter.style.display = "none";
+        hideError();
+      }
+    }
+
+    // ─── Render a simple markdown-ish text ───────────────────────────
+    function renderText(text) {
+      // Minimal: convert markdown headers and preserve whitespace
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:0.1em 0.3em;border-radius:3px;">$1</code>');
+    }
+
+    // ─── Render results ──────────────────────────────────────────────
+    function renderResults(data) {
+      resultsCards.innerHTML = "";
+      emptyState.style.display = "none";
+
+      if (data.error && data.status === "error") {
+        showError(data.error);
+        return;
+      }
+
+      const sections = [
+        { key: "security_review", cls: "security", title: "Security Review", field: "findings" },
+        { key: "style_review", cls: "style", title: "Style Review", field: "findings" },
+        { key: "summary", cls: "summary", title: "Summary", field: "summary" },
+      ];
+
+      for (const section of sections) {
+        const review = data[section.key];
+        if (!review) continue;
+
+        const card = document.createElement("div");
+        card.className = `result-card ${section.cls}`;
+
+        const status = review.status || "unknown";
+        const content = review[section.field] || review.error || "No content";
+
+        card.innerHTML = `
+          <div class="result-card-header">
+            <span class="result-card-title">${section.title}</span>
+            <span class="result-card-status">${review.agent || ""} &middot; ${status}</span>
+          </div>
+          <div class="result-card-body">${renderText(content)}</div>
+        `;
+
+        resultsCards.appendChild(card);
+      }
+
+      // Provider footer
+      if (data.llm_provider) {
+        resultFooter.textContent = `Provider: ${data.llm_provider.provider || "?"} | Model: ${data.llm_provider.model || "?"}`;
+        resultFooter.style.display = "block";
+      }
+    }
+
+    // ─── Submit review ───────────────────────────────────────────────
+    submitBtn.addEventListener("click", async () => {
+      const code = getCode();
+
+      if (!code.trim()) {
+        showError("Please enter some code to review.");
+        return;
+      }
+
+      if (code.length > MAX_CODE_LENGTH) {
+        showError(`Code exceeds maximum length of ${MAX_CODE_LENGTH.toLocaleString()} characters.`);
+        return;
+      }
+
+      setLoading(true);
+
+      const body = {
+        code,
+        parallel: parallelCheckbox.checked,
+      };
+
+      const lang = languageSelect.value;
+      if (lang) body.language = lang;
+
+      const provider = providerSelect.value;
+      if (provider) body.provider = provider;
+
+      try {
+        const res = await fetch(`${API_BASE}/review`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          let detail = `HTTP ${res.status}`;
+          try {
+            const err = await res.json();
+            detail = err.detail || detail;
+          } catch {}
+          throw new Error(detail);
+        }
+
+        const data = await res.json();
+        renderResults(data);
+      } catch (err) {
+        showError(err.message === "Failed to fetch"
+          ? "Cannot connect to the API. Is the backend running on " + API_BASE + "?"
+          : err.message);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    // ─── Load providers ──────────────────────────────────────────────
+    async function loadProviders() {
+      try {
+        const res = await fetch(`${API_BASE}/providers`);
+        if (res.ok) {
+          const data = await res.json();
+          const current = data.current_provider || data.provider || "?";
+          const model = data.current_model || data.model || "";
+          providerBadge.textContent = `${current}${model ? " / " + model : ""}`;
+        } else {
+          providerBadge.textContent = "API unreachable";
+        }
+      } catch {
+        providerBadge.textContent = "API offline";
+      }
+    }
+
+    loadProviders();
+  </script>
+</body>
+</html>

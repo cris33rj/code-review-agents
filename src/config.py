@@ -12,6 +12,7 @@ class LLMProvider(str, Enum):
     OLLAMA = "ollama"
     CLAUDE = "claude"
     OPENAI = "openai"
+    GEMINI = "gemini"
 
 
 class Settings(BaseSettings):
@@ -40,6 +41,10 @@ class Settings(BaseSettings):
     # OpenAI Configuration (remote)
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
+
+    # Gemini Configuration (remote)
+    gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
+    gemini_model: str = Field(default="gemini-2.5-flash", alias="GEMINI_MODEL")
     
     # Agent Settings
     max_code_length: int = Field(default=10000, alias="MAX_CODE_LENGTH")
