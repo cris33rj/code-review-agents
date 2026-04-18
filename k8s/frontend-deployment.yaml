@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: code-review-frontend
+  namespace: code-review
+  labels:
+    app: code-review-frontend
+    app.kubernetes.io/name: code-review-frontend
+    app.kubernetes.io/part-of: homelab
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: code-review-frontend
+      app.kubernetes.io/name: code-review-frontend
+      app.kubernetes.io/part-of: homelab
+  template:
+    metadata:
+      labels:
+        app: code-review-frontend
+        app.kubernetes.io/name: code-review-frontend
+        app.kubernetes.io/part-of: homelab
+    spec:
+      containers:
+        - name: code-review-frontend
+          image: homelab-registry:5000/code-review-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+
+          # Resource limits
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+
+          # Probes
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Security context
+          securityContext:
+            allowPrivilegeEscalation: false
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 15

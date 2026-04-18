@@ -123,12 +123,15 @@ async def review_code(request: CodeReviewRequest):
         if request.provider:
             try:
                 provider = LLMProvider(request.provider.lower())
-                llm_gateway = LLMGateway(provider=provider)
             except ValueError:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Invalid provider: {request.provider}. Use 'ollama', 'claude', or 'openai'"
+                    detail=f"Invalid provider: {request.provider}. Use 'ollama', 'claude', 'openai', or 'gemini'"
                 )
+            try:
+                llm_gateway = LLMGateway(provider=provider)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
         
         orchestrator = Orchestrator(llm_gateway=llm_gateway)
         
