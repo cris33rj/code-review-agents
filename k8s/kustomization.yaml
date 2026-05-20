@@ -11,7 +11,7 @@ resources:
   - frontend-deployment.yaml
   - frontend-service.yaml
   - ingress.yaml
-  - secrets.yaml
+  - sealed-secrets.yaml
 
 # Add secrets only if the file exists
 # kubectl apply -k k8s/ will apply all resources

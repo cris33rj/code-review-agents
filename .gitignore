@@ -55,3 +55,5 @@ Thumbs.db
 # Kubernetes secrets (never commit!)
 k8s/secrets.yaml
 *secret*.yaml
+!k8s/sealed-secrets.yaml
+
