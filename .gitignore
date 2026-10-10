@@ -57,3 +57,11 @@ k8s/secrets.yaml
 *secret*.yaml
 !k8s/sealed-secrets.yaml
 
+# Private keys (never commit!)
+*.key
+*.pem
+
+# kubeseal binary / archives
+kubeseal
+kubeseal-*.tar.gz
+
