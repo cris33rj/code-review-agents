@@ -77,8 +77,10 @@ spec:
       terminationGracePeriodSeconds: 30
       
       # Host aliases for Ollama access
+      # Replace the IP below with the address of the host running Ollama
+      # (e.g. your Docker/WSL host IP, obtainable via `ip route` on Linux).
       hostAliases:
-        - ip: "172.28.128.1"
+        - ip: "10.0.0.1"  # placeholder - set to your Ollama host IP
           hostnames:
             - "host.docker.internal"
             - "ollama-host"
